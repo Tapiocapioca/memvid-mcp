@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { isPathWithinRoots } from "./roots.js";
+
+export { log } from "./logger.js";
 
 // ============================================================================
 // CLI Execution Types
@@ -17,54 +20,23 @@ export interface ExecuteOptions {
   skipJson?: boolean;
 }
 
-
-
-// ============================================================================
-// Logging (stderr for MCP stdio transport)
-// ============================================================================
-
-type LogLevel = "debug" | "info" | "warning" | "error";
-
-const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warning: 2, error: 3 };
-const currentLevel = (process.env.MEMVID_LOG_LEVEL as LogLevel) || "warning";
-
-export function log(level: LogLevel, message: string, data?: unknown): void {
-  if (LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]) {
-    const timestamp = new Date().toISOString();
-    const entry = data
-      ? `[${timestamp}] [memvid-mcp] [${level.toUpperCase()}] ${message} ${JSON.stringify(data)}`
-      : `[${timestamp}] [memvid-mcp] [${level.toUpperCase()}] ${message}`;
-    console.error(entry);
-  }
-}
-
 // ============================================================================
 // Security: Path Validation
 // ============================================================================
+
+const BLOCKED_LINUX_PATHS = ["/etc/", "/proc/", "/sys/", "/var/log/", "/root/", "/.ssh/"];
+const BLOCKED_WINDOWS_PATHS = ["\\windows\\", "\\system32\\", "/windows/", "/system32/"];
 
 function isPathSafe(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
 
   if (normalized.includes("..")) return false;
 
-  const blockedPatterns = [
-    "/etc/",
-    "/proc/",
-    "/sys/",
-    "/var/log/",
-    "/root/",
-    "/.ssh/",
-  ];
-  const blockedWindowsPatterns = [
-    "\\windows\\",
-    "\\system32\\",
-    "/windows/",
-    "/system32/",
-  ];
-
   const lowerPath = normalized.toLowerCase();
-  if (blockedPatterns.some((p) => lowerPath.includes(p))) return false;
-  if (blockedWindowsPatterns.some((p) => lowerPath.includes(p))) return false;
+  if (BLOCKED_LINUX_PATHS.some((p) => lowerPath.includes(p))) return false;
+  if (BLOCKED_WINDOWS_PATHS.some((p) => lowerPath.includes(p))) return false;
+
+  if (!isPathWithinRoots(path)) return false;
 
   return true;
 }

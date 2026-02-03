@@ -4,15 +4,38 @@ import { executeMemvid, buildArgs } from "../executor.js";
 import { filePathSchema, outputPathSchema, formatToolResult, ANNOTATIONS } from "../types.js";
 
 export function registerCryptoTools(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "memvid_lock",
-    "Encrypt a memory file (creates .mv2e encrypted file)",
     {
-      file: filePathSchema.describe("Path to the .mv2 file to encrypt"),
-      output: outputPathSchema.describe("Output path for the encrypted file (.mv2e)"),
-      password: z.string().optional().describe("Encryption password (required for non-interactive use)"),
+      title: "Encrypt Memory",
+      description: `Encrypt a memory file.
+
+Creates an encrypted .mv2e file using AES-256-GCM encryption.
+The original .mv2 file is not modified.
+
+Args:
+  file: Path to the .mv2 file to encrypt
+  output: Output path for the encrypted file (.mv2e)
+  password: Encryption password (required for non-interactive use)
+
+Returns:
+  {
+    "encrypted_file": string,
+    "original_size": number,
+    "encrypted_size": number
+  }
+
+Security:
+  - Uses PBKDF2 key derivation
+  - AES-256-GCM encryption
+  - Password is not stored`,
+      inputSchema: z.object({
+        file: filePathSchema.describe("Path to the .mv2 file to encrypt"),
+        output: outputPathSchema.describe("Output path for the encrypted file (.mv2e)"),
+        password: z.string().optional().describe("Encryption password (required for non-interactive use)")
+      }).strict(),
+      annotations: ANNOTATIONS.WRITE
     },
-    { ...ANNOTATIONS.WRITE, title: "Encrypt Memory" },
     async ({ file, output, password }) => {
       const args = buildArgs(["lock", "--output", output, file], { password });
       const result = await executeMemvid(args);
@@ -20,15 +43,35 @@ export function registerCryptoTools(server: McpServer) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "memvid_unlock",
-    "Decrypt an encrypted memory file",
     {
-      file: filePathSchema.describe("Path to the encrypted .mv2e file"),
-      output: outputPathSchema.describe("Output path for the decrypted file (.mv2)"),
-      password: z.string().optional().describe("Decryption password (required for non-interactive use)"),
+      title: "Decrypt Memory",
+      description: `Decrypt an encrypted memory file.
+
+Decrypts a .mv2e file back to .mv2 format.
+
+Args:
+  file: Path to the encrypted .mv2e file
+  output: Output path for the decrypted file (.mv2)
+  password: Decryption password (required for non-interactive use)
+
+Returns:
+  {
+    "decrypted_file": string,
+    "success": boolean
+  }
+
+Errors:
+  - Invalid password
+  - Corrupted encrypted file`,
+      inputSchema: z.object({
+        file: filePathSchema.describe("Path to the encrypted .mv2e file"),
+        output: outputPathSchema.describe("Output path for the decrypted file (.mv2)"),
+        password: z.string().optional().describe("Decryption password (required for non-interactive use)")
+      }).strict(),
+      annotations: ANNOTATIONS.WRITE
     },
-    { ...ANNOTATIONS.WRITE, title: "Decrypt Memory" },
     async ({ file, output, password }) => {
       const args = buildArgs(["unlock", "--output", output, file], { password });
       const result = await executeMemvid(args);
