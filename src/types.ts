@@ -13,6 +13,8 @@ export interface CliResult {
   error?: string;
   exitCode: number;
   stderr?: string;
+  isSpawnError?: boolean;
+  spawnErrorCode?: string;
 }
 
 export interface ExecuteOptions {

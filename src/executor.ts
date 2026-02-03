@@ -1,27 +1,35 @@
 import spawn from "cross-spawn";
+import { existsSync } from "fs";
 import type { CliResult, ExecuteOptions } from "./types.js";
 import { TIMEOUTS, log } from "./types.js";
 
 const MEMVID_PATH = process.env.MEMVID_PATH || "memvid";
 const MEMVID_VERBOSE = process.env.MEMVID_VERBOSE === "1";
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 100;
 
-export async function executeMemvid(
-  args: string[],
-  options: ExecuteOptions = {}
+// Verify path exists at startup (logged once)
+let pathVerified = false;
+function verifyPath(): boolean {
+  if (pathVerified) return true;
+  
+  const exists = MEMVID_PATH === "memvid" || existsSync(MEMVID_PATH);
+  if (exists) {
+    log("info", `Memvid path verified: ${MEMVID_PATH}`);
+    pathVerified = true;
+  } else {
+    log("error", `Memvid path does not exist: ${MEMVID_PATH}`);
+  }
+  return exists;
+}
+
+// Single execution attempt
+function executeOnce(
+  fullArgs: string[],
+  command: string,
+  timeout: number,
+  skipJson: boolean
 ): Promise<CliResult> {
-  const { timeout = TIMEOUTS.DEFAULT, skipJson = false } = options;
-
-  const fullArgs = [...args];
-  if (!skipJson) {
-    fullArgs.push("--json");
-  }
-  if (MEMVID_VERBOSE) {
-    fullArgs.push("--verbose");
-  }
-
-  const command = args[0] || "unknown";
-  log("debug", `Executing: memvid ${command}`, { args: args.slice(1, 3) });
-
   return new Promise((resolve) => {
     const stdout: string[] = [];
     const stderr: string[] = [];
@@ -36,7 +44,7 @@ export async function executeMemvid(
       log("warning", `Command timeout: memvid ${command}`, { timeout });
       resolve({
         success: false,
-        error: `Command timed out after ${timeout}ms: memvid ${args.join(" ")}`,
+        error: `Command timed out after ${timeout}ms: memvid ${fullArgs.join(" ")}`,
         exitCode: -1,
       });
     }, timeout);
@@ -51,12 +59,18 @@ export async function executeMemvid(
 
     child.on("error", (err) => {
       clearTimeout(timeoutId);
-      log("error", `Spawn failed: ${err.message}`, { path: MEMVID_PATH });
+      log("error", `Spawn failed: ${err.message}`, { 
+        path: MEMVID_PATH, 
+        command, 
+        code: (err as NodeJS.ErrnoException).code 
+      });
       resolve({
         success: false,
         error: `Failed to spawn memvid: ${err.message}. Is MEMVID_PATH set correctly? Current: ${MEMVID_PATH}`,
         exitCode: -1,
-      });
+        isSpawnError: true,
+        spawnErrorCode: (err as NodeJS.ErrnoException).code,
+      } as CliResult);
     });
 
     child.on("close", (code) => {
@@ -105,6 +119,53 @@ export async function executeMemvid(
       }
     });
   });
+}
+
+// Sleep helper
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export async function executeMemvid(
+  args: string[],
+  options: ExecuteOptions = {}
+): Promise<CliResult> {
+  const { timeout = TIMEOUTS.DEFAULT, skipJson = false } = options;
+
+  // Verify path on first call
+  verifyPath();
+
+  const fullArgs = [...args];
+  if (!skipJson) {
+    fullArgs.push("--json");
+  }
+  if (MEMVID_VERBOSE) {
+    fullArgs.push("--verbose");
+  }
+
+  const command = args[0] || "unknown";
+  log("debug", `Executing: memvid ${command}`, { args: args.slice(1, 3) });
+
+  // Execute with retry for ENOENT errors (transient spawn issues)
+  let lastResult: CliResult | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      log("info", `Retry ${attempt}/${MAX_RETRIES} for: memvid ${command}`);
+      await sleep(RETRY_DELAY_MS * attempt); // Exponential backoff
+    }
+
+    lastResult = await executeOnce(fullArgs, command, timeout, skipJson);
+    
+    // Only retry on spawn errors (ENOENT, etc.), not on command failures
+    const isSpawnError = (lastResult as { isSpawnError?: boolean }).isSpawnError;
+    if (lastResult.success || !isSpawnError) {
+      return lastResult;
+    }
+    
+    log("warning", `Spawn error on attempt ${attempt + 1}, will retry`, {
+      code: (lastResult as { spawnErrorCode?: string }).spawnErrorCode
+    });
+  }
+
+  return lastResult!;
 }
 
 export function buildArgs(
