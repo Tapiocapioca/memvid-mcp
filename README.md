@@ -12,7 +12,7 @@ This server wraps the memvid Rust CLI binary, exposing all 40 commands as MCP to
 ## Installation
 
 ```bash
-git clone https://github.com/user/memvid-mcp.git
+git clone https://github.com/Tapiocapioca/memvid-mcp.git
 cd memvid-mcp
 npm install
 npm run build
@@ -25,6 +25,7 @@ npm run build
 | `MEMVID_PATH` | `memvid` | Path to the memvid binary |
 | `MEMVID_TIMEOUT` | `120000` | Default command timeout (ms) |
 | `MEMVID_VERBOSE` | `0` | Set to `1` for verbose logging |
+| `MEMVID_LOG_LEVEL` | `warning` | Log level: `debug`, `info`, `warning`, `error` |
 
 ## MCP Client Setup
 
