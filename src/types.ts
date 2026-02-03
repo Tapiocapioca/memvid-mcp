@@ -168,15 +168,34 @@ export const TIMEOUTS = {
 } as const;
 
 // ============================================================================
+// Response Size Limits (MCP Best Practice)
+// ============================================================================
+
+/**
+ * Maximum response size in characters.
+ * Large responses are truncated to prevent overwhelming LLM context windows.
+ */
+export const CHARACTER_LIMIT = 50000;
+
+// ============================================================================
 // Tool Result Helper (MCP Best Practice: isError flag)
 // ============================================================================
 
 export function formatToolResult(result: CliResult) {
   if (result.success) {
-    const text =
+    let text =
       typeof result.data === "string"
         ? result.data
         : JSON.stringify(result.data, null, 2);
+
+    if (text.length > CHARACTER_LIMIT) {
+      const truncated = text.slice(0, CHARACTER_LIMIT);
+      text =
+        truncated +
+        `\n\n[TRUNCATED: Response exceeded ${CHARACTER_LIMIT} characters. ` +
+        `Use more specific queries or filters to reduce result size.]`;
+    }
+
     return {
       content: [{ type: "text" as const, text }],
       isError: false,

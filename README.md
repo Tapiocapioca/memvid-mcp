@@ -78,9 +78,9 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "memvid": {
       "command": "node",
-      "args": ["C:/AI/memvid-mcp/dist/index.js"],
+      "args": ["/path/to/memvid-mcp/dist/index.js"],
       "env": {
-        "MEMVID_PATH": "C:/Tools/bin/memvid.exe"
+        "MEMVID_PATH": "/path/to/memvid"
       }
     }
   }
@@ -113,9 +113,9 @@ Add to `opencode.json`:
     "memvid": {
       "type": "stdio",
       "command": "node",
-      "args": ["C:/AI/memvid-mcp/dist/index.js"],
+      "args": ["/path/to/memvid-mcp/dist/index.js"],
       "env": {
-        "MEMVID_PATH": "C:/Tools/bin/memvid.exe"
+        "MEMVID_PATH": "/path/to/memvid"
       }
     }
   }
