@@ -1,6 +1,6 @@
 # memvid-mcp
 
-MCP (Model Context Protocol) server for [memvid](https://github.com/olow304/memvid-unlocked) - a memory layer for AI agents.
+MCP (Model Context Protocol) server for [memvid](https://github.com/memvid/memvid) - a memory layer for AI agents.
 
 This server wraps the memvid Rust CLI, exposing 40 tools for persistent memory management with hybrid search (lexical + vector), temporal indexing, knowledge graphs, and RAG capabilities.
 
@@ -15,7 +15,7 @@ This server wraps the memvid Rust CLI, exposing 40 tools for persistent memory m
 ## Prerequisites
 
 - **Node.js 18+**
-- **memvid CLI** binary ([memvid-unlocked](https://github.com/olow304/memvid-unlocked) or official memvid)
+- **memvid CLI** binary (see [memvid](https://github.com/memvid/memvid) for installation)
 - **Optional**: Embedder configuration for vector search (embedder.toml)
 - **Optional**: LLM configuration for RAG (llm.toml)
 
