@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, frameIdSchema, formatToolResult, TIMEOUTS } from "../types.js";
+import { filePathSchema, frameIdSchema, formatToolResult, TIMEOUTS, ANNOTATIONS } from "../types.js";
 
 export function registerKnowledgeTools(server: McpServer) {
   server.tool(
@@ -12,6 +12,7 @@ export function registerKnowledgeTools(server: McpServer) {
       all: z.boolean().optional().describe("Process all pending frames"),
       frame_id: frameIdSchema.optional().describe("Specific frame ID to enrich"),
     },
+    { ...ANNOTATIONS.WRITE, title: "NER Enrichment" },
     async ({ file, all, frame_id }) => {
       const args = buildArgs(["enrich", file], { all, frame_id });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.HEAVY });
@@ -28,6 +29,7 @@ export function registerKnowledgeTools(server: McpServer) {
       stats: z.boolean().optional().describe("Show memory statistics"),
       entity: z.string().optional().describe("Filter by entity name"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Memory Cards" },
     async ({ file, list, stats, entity }) => {
       const args = buildArgs(["memories", file], { list, stats, entity });
       const result = await executeMemvid(args);
@@ -42,6 +44,7 @@ export function registerKnowledgeTools(server: McpServer) {
       file: filePathSchema,
       show: z.boolean().optional().describe("Show current state"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Memory State" },
     async ({ file, show }) => {
       const args = buildArgs(["state", file], { show });
       const result = await executeMemvid(args);
@@ -57,6 +60,7 @@ export function registerKnowledgeTools(server: McpServer) {
       frame_id: frameIdSchema.optional().describe("Extract facts from specific frame"),
       list: z.boolean().optional().describe("List all extracted facts"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Extracted Facts" },
     async ({ file, frame_id, list }) => {
       const args = buildArgs(["facts", file], { frame_id, list });
       const result = await executeMemvid(args);
@@ -73,6 +77,7 @@ export function registerKnowledgeTools(server: McpServer) {
       link: z.string().optional().describe("Link type to follow (default: related)"),
       hops: z.number().int().positive().optional().describe("Number of relationship hops (default: 2)"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Follow Entity" },
     async ({ file, entity, link, hops }) => {
       const args = buildArgs(["follow", file, entity], { link, hops });
       const result = await executeMemvid(args);
@@ -87,6 +92,7 @@ export function registerKnowledgeTools(server: McpServer) {
       file: filePathSchema,
       query: z.string().min(1).describe("Entity name or query"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Entity Lookup" },
     async ({ file, query }) => {
       const result = await executeMemvid(["who", file, query]);
       return formatToolResult(result);

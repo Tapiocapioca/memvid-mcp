@@ -8,6 +8,7 @@ import {
   askModeSchema,
   formatToolResult,
   TIMEOUTS,
+  ANNOTATIONS,
 } from "../types.js";
 
 export function registerSearchTools(server: McpServer) {
@@ -22,6 +23,7 @@ export function registerSearchTools(server: McpServer) {
       uri: z.string().optional().describe("Filter results by exact URI match"),
       scope: z.string().optional().describe("Filter results by URI prefix (scope)"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Search Memory" },
     async ({ file, query, mode, limit, uri, scope }) => {
       const args = buildArgs(["find", file, query], { mode, limit, uri, scope });
       const result = await executeMemvid(args);
@@ -37,6 +39,7 @@ export function registerSearchTools(server: McpServer) {
       query: z.string().min(1).describe("Search query text"),
       limit: limitSchema,
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Semantic Search" },
     async ({ file, query, limit }) => {
       const args = buildArgs(["vec-search", file, query], { limit });
       const result = await executeMemvid(args);
@@ -54,6 +57,7 @@ export function registerSearchTools(server: McpServer) {
       context_only: z.boolean().optional().describe("Return only the retrieved context without synthesis"),
       mode: askModeSchema,
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Ask Question (RAG)" },
     async ({ file, question, top_k, context_only, mode }) => {
       const args = buildArgs(["ask", file, question], { top_k, context_only, mode });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.RAG });
@@ -71,6 +75,7 @@ export function registerSearchTools(server: McpServer) {
       since: z.number().optional().describe("Filter from timestamp (Unix milliseconds)"),
       until: z.number().optional().describe("Filter until timestamp (Unix milliseconds)"),
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "View Timeline" },
     async ({ file, limit, reverse, since, until }) => {
       const args = buildArgs(["timeline", file], { limit, reverse, since, until });
       const result = await executeMemvid(args);
@@ -86,6 +91,7 @@ export function registerSearchTools(server: McpServer) {
       query: z.string().min(1).describe("Time-related query"),
       limit: limitSchema,
     },
+    { ...ANNOTATIONS.READ_ONLY, title: "Temporal Search" },
     async ({ file, query, limit }) => {
       const args = buildArgs(["when", file, query], { limit });
       const result = await executeMemvid(args);

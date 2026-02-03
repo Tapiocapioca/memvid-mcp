@@ -17,6 +17,58 @@ export interface ExecuteOptions {
   skipJson?: boolean;
 }
 
+
+
+// ============================================================================
+// Logging (stderr for MCP stdio transport)
+// ============================================================================
+
+type LogLevel = "debug" | "info" | "warning" | "error";
+
+const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warning: 2, error: 3 };
+const currentLevel = (process.env.MEMVID_LOG_LEVEL as LogLevel) || "warning";
+
+export function log(level: LogLevel, message: string, data?: unknown): void {
+  if (LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]) {
+    const timestamp = new Date().toISOString();
+    const entry = data
+      ? `[${timestamp}] [memvid-mcp] [${level.toUpperCase()}] ${message} ${JSON.stringify(data)}`
+      : `[${timestamp}] [memvid-mcp] [${level.toUpperCase()}] ${message}`;
+    console.error(entry);
+  }
+}
+
+// ============================================================================
+// Security: Path Validation
+// ============================================================================
+
+function isPathSafe(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+
+  if (normalized.includes("..")) return false;
+
+  const blockedPatterns = [
+    "/etc/",
+    "/proc/",
+    "/sys/",
+    "/var/log/",
+    "/root/",
+    "/.ssh/",
+  ];
+  const blockedWindowsPatterns = [
+    "\\windows\\",
+    "\\system32\\",
+    "/windows/",
+    "/system32/",
+  ];
+
+  const lowerPath = normalized.toLowerCase();
+  if (blockedPatterns.some((p) => lowerPath.includes(p))) return false;
+  if (blockedWindowsPatterns.some((p) => lowerPath.includes(p))) return false;
+
+  return true;
+}
+
 // ============================================================================
 // Common Zod Schemas
 // ============================================================================
@@ -24,7 +76,26 @@ export interface ExecuteOptions {
 export const filePathSchema = z
   .string()
   .min(1)
+  .refine(isPathSafe, {
+    message: "Path contains unsafe patterns (path traversal or system paths not allowed)",
+  })
   .describe("Path to the .mv2 memory file");
+
+export const outputPathSchema = z
+  .string()
+  .min(1)
+  .refine(isPathSafe, {
+    message: "Output path contains unsafe patterns",
+  })
+  .describe("Output file path");
+
+export const inputPathSchema = z
+  .string()
+  .min(1)
+  .refine(isPathSafe, {
+    message: "Input path contains unsafe patterns",
+  })
+  .describe("Input file or directory path");
 
 export const frameIdSchema = z
   .number()
@@ -73,31 +144,76 @@ export const sketchVariantSchema = z
   .describe("Sketch variant size");
 
 // ============================================================================
+// Tool Annotations (MCP Best Practice)
+// ============================================================================
+
+export interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
+export const ANNOTATIONS = {
+  READ_ONLY: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  } as ToolAnnotations,
+
+  WRITE: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  } as ToolAnnotations,
+
+  DESTRUCTIVE: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  } as ToolAnnotations,
+
+  NETWORK: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  } as ToolAnnotations,
+} as const;
+
+// ============================================================================
 // Timeout Configuration
 // ============================================================================
 
 export const TIMEOUTS = {
-  DEFAULT: 120000,      // 2 minutes
-  HEAVY: 300000,        // 5 minutes (put, put-many, enrich)
-  RAG: 180000,          // 3 minutes (ask, audit)
+  DEFAULT: 120000,
+  HEAVY: 300000,
+  RAG: 180000,
 } as const;
 
 // ============================================================================
-// Tool Result Helper
+// Tool Result Helper (MCP Best Practice: isError flag)
 // ============================================================================
 
-export function formatToolResult(result: CliResult): { content: Array<{ type: "text"; text: string }> } {
+export function formatToolResult(result: CliResult) {
   if (result.success) {
-    const text = typeof result.data === "string" 
-      ? result.data 
-      : JSON.stringify(result.data, null, 2);
+    const text =
+      typeof result.data === "string"
+        ? result.data
+        : JSON.stringify(result.data, null, 2);
     return {
-      content: [{ type: "text", text }]
+      content: [{ type: "text" as const, text }],
+      isError: false,
     };
   } else {
     const errorMsg = result.stderr || result.error || "Unknown error";
     return {
-      content: [{ type: "text", text: `Error: ${errorMsg}` }]
+      content: [{ type: "text" as const, text: `Error: ${errorMsg}` }],
+      isError: true,
     };
   }
 }

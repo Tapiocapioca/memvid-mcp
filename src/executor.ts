@@ -1,6 +1,6 @@
-import { spawn } from "child_process";
+import spawn from "cross-spawn";
 import type { CliResult, ExecuteOptions } from "./types.js";
-import { TIMEOUTS } from "./types.js";
+import { TIMEOUTS, log } from "./types.js";
 
 const MEMVID_PATH = process.env.MEMVID_PATH || "memvid";
 const MEMVID_VERBOSE = process.env.MEMVID_VERBOSE === "1";
@@ -19,17 +19,21 @@ export async function executeMemvid(
     fullArgs.push("--verbose");
   }
 
+  const command = args[0] || "unknown";
+  log("debug", `Executing: memvid ${command}`, { args: args.slice(1, 3) });
+
   return new Promise((resolve) => {
     const stdout: string[] = [];
     const stderr: string[] = [];
 
     const child = spawn(MEMVID_PATH, fullArgs, {
       stdio: ["ignore", "pipe", "pipe"],
-      shell: process.platform === "win32",
+      windowsHide: true,
     });
 
     const timeoutId = setTimeout(() => {
       child.kill("SIGTERM");
+      log("warning", `Command timeout: memvid ${command}`, { timeout });
       resolve({
         success: false,
         error: `Command timed out after ${timeout}ms: memvid ${args.join(" ")}`,
@@ -37,16 +41,17 @@ export async function executeMemvid(
       });
     }, timeout);
 
-    child.stdout.on("data", (data: Buffer) => {
+    child.stdout?.on("data", (data: Buffer) => {
       stdout.push(data.toString());
     });
 
-    child.stderr.on("data", (data: Buffer) => {
+    child.stderr?.on("data", (data: Buffer) => {
       stderr.push(data.toString());
     });
 
     child.on("error", (err) => {
       clearTimeout(timeoutId);
+      log("error", `Spawn failed: ${err.message}`, { path: MEMVID_PATH });
       resolve({
         success: false,
         error: `Failed to spawn memvid: ${err.message}. Is MEMVID_PATH set correctly? Current: ${MEMVID_PATH}`,
@@ -62,6 +67,7 @@ export async function executeMemvid(
 
       if (code === 0) {
         if (skipJson) {
+          log("debug", `Command success: memvid ${command}`);
           resolve({
             success: true,
             data: stdoutStr,
@@ -70,12 +76,17 @@ export async function executeMemvid(
         } else {
           try {
             const data = JSON.parse(stdoutStr);
+            log("debug", `Command success: memvid ${command}`);
             resolve({
               success: true,
               data,
               exitCode: code,
             });
-          } catch {
+          } catch (parseError) {
+            log("warning", `JSON parse failed for: memvid ${command}`, {
+              error: parseError instanceof Error ? parseError.message : "unknown",
+              outputLength: stdoutStr.length,
+            });
             resolve({
               success: true,
               data: stdoutStr,
@@ -84,6 +95,7 @@ export async function executeMemvid(
           }
         }
       } else {
+        log("info", `Command failed: memvid ${command}`, { exitCode: code });
         resolve({
           success: false,
           error: stderrStr || stdoutStr || `Process exited with code ${code}`,
