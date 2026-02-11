@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, frameIdSchema, formatToolResult, TIMEOUTS, ANNOTATIONS } from "../types.js";
+import { filePathSchema, frameIdSchema, formatToolResult, validateMv2Exists, TIMEOUTS, ANNOTATIONS } from "../types.js";
 
 export function registerKnowledgeTools(server: McpServer) {
   server.registerTool(
@@ -31,6 +31,9 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, all, frame_id }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["enrich", file], { all, frame_id });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.HEAVY });
       return formatToolResult(result);
@@ -62,6 +65,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, list, stats, entity }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["memories", file], { list, stats, entity });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -89,6 +95,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, show }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["state", file], { show });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -118,6 +127,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, frame_id, list }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["facts", file], { frame_id, list });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -158,6 +170,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, entity, link, hops }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["follow", file, entity], { link, hops });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -185,6 +200,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, query }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const result = await executeMemvid(["who", file, query]);
       return formatToolResult(result);
     }

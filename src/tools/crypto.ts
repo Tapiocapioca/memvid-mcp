@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, outputPathSchema, formatToolResult, ANNOTATIONS } from "../types.js";
+import { filePathSchema, outputPathSchema, formatToolResult, validateMv2Exists, fileExists, ANNOTATIONS } from "../types.js";
 
 export function registerCryptoTools(server: McpServer) {
   server.registerTool(
@@ -37,6 +37,9 @@ Security:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, output, password }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["lock", "--output", output, file], { password });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -73,6 +76,13 @@ Errors:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, output, password }) => {
+      if (!fileExists(file)) {
+        return {
+          content: [{ type: "text" as const, text: `Error: Encrypted file not found: "${file}". Verify the .mv2e file exists at this Windows path.` }],
+          isError: true,
+        };
+      }
+
       const args = buildArgs(["unlock", "--output", output, file], { password });
       const result = await executeMemvid(args);
       return formatToolResult(result);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, formatToolResult, ANNOTATIONS } from "../types.js";
+import { filePathSchema, formatToolResult, validateMv2Exists, ANNOTATIONS } from "../types.js";
 
 export function registerLifecycleTools(server: McpServer) {
   server.registerTool(
@@ -10,21 +10,24 @@ export function registerLifecycleTools(server: McpServer) {
       title: "Create Memory File",
       description: `Create a new .mv2 memory file for storing AI agent memories.
 
+IMPORTANT: memvid.exe runs on Windows. The path MUST be a Windows-style path.
+
 The .mv2 format is a SQLite-based memory store supporting:
 - Full-text lexical search (Tantivy)
 - Vector similarity search (embeddings)
 - Temporal indexing
 
 Args:
-  file: Path where the new .mv2 file will be created
+  file: Windows path where the .mv2 file will be created (e.g., C:\\Tools\\memvid-data\\knowledge.mv2)
 
 Returns:
   JSON with creation status and file path
 
 Errors:
-  - File already exists
+  - File already exists at that path
   - Invalid path or permission denied
-  - Path outside allowed roots`,
+  - Path outside allowed roots
+  - Linux paths (e.g., /tmp/file.mv2) will fail — use Windows paths`,
       inputSchema: z.object({
         file: filePathSchema
       }).strict(),
@@ -59,6 +62,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const result = await executeMemvid(["open", file]);
       return formatToolResult(result);
     }
@@ -88,6 +94,9 @@ Args:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const result = await executeMemvid(["stats", file]);
       return formatToolResult(result);
     }
@@ -117,6 +126,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, deep }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["verify", file], { deep });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -153,6 +165,9 @@ Returns:
       annotations: ANNOTATIONS.DESTRUCTIVE
     },
     async ({ file, rebuild_time_index, rebuild_lex_index, rebuild_vec_index, dry_run }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["doctor", file], {
         rebuild_time_index,
         rebuild_lex_index,

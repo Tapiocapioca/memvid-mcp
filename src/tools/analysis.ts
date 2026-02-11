@@ -8,6 +8,7 @@ import {
   modelTypeSchema,
   outputPathSchema,
   formatToolResult,
+  validateMv2Exists,
   TIMEOUTS,
   ANNOTATIONS,
 } from "../types.js";
@@ -49,6 +50,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, query, top_k, include_snippets }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["audit", file, query], { top_k, include_snippets });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.RAG });
       return formatToolResult(result);
@@ -81,6 +85,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, segment_type }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = ["debug-segment", file, segment_type];
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -110,6 +117,9 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, output, format, frame_ids }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["export", "--output", output, file], { format, frame_ids });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -135,6 +145,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const result = await executeMemvid(["tables", file]);
       return formatToolResult(result);
     }
@@ -163,6 +176,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, infer, summary }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["schema", file], { infer, summary });
       const result = await executeMemvid(args);
       return formatToolResult(result);

@@ -64,12 +64,19 @@ function executeOnce(
         command, 
         code: (err as NodeJS.ErrnoException).code 
       });
+      const errCode = (err as NodeJS.ErrnoException).code;
+      let hint = `Is MEMVID_PATH set correctly? Current: ${MEMVID_PATH}`;
+      if (errCode === "ENOENT") {
+        hint = `memvid.exe not found at "${MEMVID_PATH}". Set MEMVID_PATH environment variable to the correct Windows path (e.g., C:\\Tools\\bin\\memvid.exe)`;
+      } else if (errCode === "EACCES") {
+        hint = `Permission denied running "${MEMVID_PATH}". Check file permissions.`;
+      }
       resolve({
         success: false,
-        error: `Failed to spawn memvid: ${err.message}. Is MEMVID_PATH set correctly? Current: ${MEMVID_PATH}`,
+        error: `Failed to spawn memvid: ${err.message}. ${hint}`,
         exitCode: -1,
         isSpawnError: true,
-        spawnErrorCode: (err as NodeJS.ErrnoException).code,
+        spawnErrorCode: errCode,
       } as CliResult);
     });
 
@@ -110,9 +117,11 @@ function executeOnce(
         }
       } else {
         log("info", `Command failed: memvid ${command}`, { exitCode: code });
+        const rawError = stderrStr || stdoutStr || "";
+        const errorMsg = rawError || `memvid ${command} failed with exit code ${code}. Check that the file exists and the command arguments are correct.`;
         resolve({
           success: false,
-          error: stderrStr || stdoutStr || `Process exited with code ${code}`,
+          error: errorMsg,
           stderr: stderrStr,
           exitCode: code ?? -1,
         });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, formatToolResult, ANNOTATIONS } from "../types.js";
+import { filePathSchema, formatToolResult, validateMv2Exists, ANNOTATIONS } from "../types.js";
 
 export function registerSessionTools(server: McpServer) {
   server.registerTool(
@@ -31,6 +31,9 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, list, start, stop, replay }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["session", file], { list, start, stop, replay });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -60,6 +63,9 @@ Returns:
       annotations: ANNOTATIONS.DESTRUCTIVE
     },
     async ({ file, show, unbind }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["binding", file], { show, unbind });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -112,6 +118,9 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, build, stats }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["sketch", file], { build, stats });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -140,6 +149,9 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const result = await executeMemvid(["nudge", file]);
       return formatToolResult(result);
     }

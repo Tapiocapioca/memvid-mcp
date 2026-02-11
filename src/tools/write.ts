@@ -1,7 +1,16 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, frameIdSchema, inputPathSchema, formatToolResult, TIMEOUTS, ANNOTATIONS } from "../types.js";
+import {
+  filePathSchema,
+  frameIdSchema,
+  inputPathSchema,
+  formatToolResult,
+  validateMv2Exists,
+  validateInputExists,
+  TIMEOUTS,
+  ANNOTATIONS,
+} from "../types.js";
 
 export function registerWriteTools(server: McpServer) {
   server.registerTool(
@@ -10,12 +19,15 @@ export function registerWriteTools(server: McpServer) {
       title: "Add Content",
       description: `Add content to a memory file from a file or directory.
 
-Supports multiple file types: text, markdown, code, PDF, images (with OCR).
-Use embed=true to generate vector embeddings for semantic search.
+IMPORTANT: memvid.exe runs on Windows. All paths MUST be Windows-style.
+Linux paths (e.g., /tmp/file.md) will fail silently.
+
+Supports: text, markdown, code, PDF, images (OCR).
+Use embed=true for vector embeddings (semantic search).
 
 Args:
-  file: Path to the .mv2 memory file
-  input: Path to file or directory to ingest
+  file: Windows path to .mv2 file (e.g., C:\\Tools\\memvid-data\\knowledge.mv2)
+  input: Windows path to file/directory to ingest (e.g., C:\\Tools\\data\\readme.md)
   recursive: Include subdirectories when input is a directory
   parallel: Process files in parallel for faster ingestion
   embed: Generate vector embeddings (requires embedder.toml configuration)
@@ -29,9 +41,13 @@ Returns:
   }
 
 Examples:
-  - Add single file: input="/docs/readme.md"
-  - Add directory: input="/docs", recursive=true
-  - With embeddings: input="/docs", embed=true`,
+  - Add single file: file="C:\\Tools\\memvid-data\\kb.mv2", input="C:\\Tools\\data\\readme.md"
+  - Add directory: input="C:\\Tools\\docs", recursive=true
+  - With embeddings: input="C:\\Tools\\docs", embed=true
+
+Common errors:
+  - Empty response: input path does not exist on Windows filesystem
+  - Use memvid_create first if the .mv2 file doesn't exist yet`,
       inputSchema: z.object({
         file: filePathSchema,
         input: inputPathSchema,
@@ -43,6 +59,11 @@ Examples:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, input, recursive, parallel, embed, log }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+      const inputError = validateInputExists(input);
+      if (inputError) return inputError;
+
       const args = buildArgs(["put", "--input", input, file], { recursive, parallel, embed, log });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.HEAVY });
       return formatToolResult(result);
@@ -76,6 +97,11 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, input, recursive, parallel, batch_size }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+      const inputError = validateInputExists(input);
+      if (inputError) return inputError;
+
       const args = buildArgs(["put-many", "--input", input, file], { recursive, parallel, batch_size });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.HEAVY });
       return formatToolResult(result);
@@ -109,6 +135,9 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ file, frame_id, raw }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["view", file, String(frame_id)], { raw });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -138,6 +167,9 @@ Returns:
       annotations: ANNOTATIONS.DESTRUCTIVE
     },
     async ({ file, frame_id, content }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = ["update", file, String(frame_id), "--content", content];
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -167,6 +199,9 @@ Returns:
       annotations: { ...ANNOTATIONS.DESTRUCTIVE, idempotentHint: true }
     },
     async ({ file, frame_id, force }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["delete", file, String(frame_id)], { force });
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -197,6 +232,9 @@ Returns:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file, frame_id, content }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = ["correct", file, String(frame_id), "--content", content];
       const result = await executeMemvid(args);
       return formatToolResult(result);
@@ -226,6 +264,9 @@ Returns:
       annotations: ANNOTATIONS.NETWORK
     },
     async ({ file, url, title }) => {
+      const mv2Error = validateMv2Exists(file);
+      if (mv2Error) return mv2Error;
+
       const args = buildArgs(["api-fetch", file, url], { title });
       const result = await executeMemvid(args);
       return formatToolResult(result);
