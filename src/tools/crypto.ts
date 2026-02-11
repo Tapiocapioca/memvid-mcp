@@ -78,7 +78,7 @@ Errors:
     async ({ file, output, password }) => {
       if (!fileExists(file)) {
         return {
-          content: [{ type: "text" as const, text: `Error: Encrypted file not found: "${file}". Verify the .mv2e file exists at this Windows path.` }],
+          content: [{ type: "text" as const, text: `Error: Encrypted file not found: "${file}". Verify the .mv2e file exists at this path.` }],
           isError: true,
         };
       }

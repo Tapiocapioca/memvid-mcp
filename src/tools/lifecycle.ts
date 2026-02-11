@@ -10,15 +10,13 @@ export function registerLifecycleTools(server: McpServer) {
       title: "Create Memory File",
       description: `Create a new .mv2 memory file for storing AI agent memories.
 
-IMPORTANT: memvid.exe runs on Windows. The path MUST be a Windows-style path.
-
 The .mv2 format is a SQLite-based memory store supporting:
 - Full-text lexical search (Tantivy)
 - Vector similarity search (embeddings)
 - Temporal indexing
 
 Args:
-  file: Windows path where the .mv2 file will be created (e.g., C:\\Tools\\memvid-data\\knowledge.mv2)
+  file: Absolute path where the .mv2 file will be created
 
 Returns:
   JSON with creation status and file path
@@ -26,8 +24,7 @@ Returns:
 Errors:
   - File already exists at that path
   - Invalid path or permission denied
-  - Path outside allowed roots
-  - Linux paths (e.g., /tmp/file.mv2) will fail — use Windows paths`,
+  - Path outside allowed roots`,
       inputSchema: z.object({
         file: filePathSchema
       }).strict(),

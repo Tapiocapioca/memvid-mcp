@@ -19,15 +19,12 @@ export function registerWriteTools(server: McpServer) {
       title: "Add Content",
       description: `Add content to a memory file from a file or directory.
 
-IMPORTANT: memvid.exe runs on Windows. All paths MUST be Windows-style.
-Linux paths (e.g., /tmp/file.md) will fail silently.
-
 Supports: text, markdown, code, PDF, images (OCR).
 Use embed=true for vector embeddings (semantic search).
 
 Args:
-  file: Windows path to .mv2 file (e.g., C:\\Tools\\memvid-data\\knowledge.mv2)
-  input: Windows path to file/directory to ingest (e.g., C:\\Tools\\data\\readme.md)
+  file: Absolute path to .mv2 file
+  input: Absolute path to file/directory to ingest
   recursive: Include subdirectories when input is a directory
   parallel: Process files in parallel for faster ingestion
   embed: Generate vector embeddings (requires embedder.toml configuration)
@@ -40,13 +37,8 @@ Returns:
     "embeddings_generated": number (if embed=true)
   }
 
-Examples:
-  - Add single file: file="C:\\Tools\\memvid-data\\kb.mv2", input="C:\\Tools\\data\\readme.md"
-  - Add directory: input="C:\\Tools\\docs", recursive=true
-  - With embeddings: input="C:\\Tools\\docs", embed=true
-
 Common errors:
-  - Empty response: input path does not exist on Windows filesystem
+  - Empty response: input path does not exist
   - Use memvid_create first if the .mv2 file doesn't exist yet`,
       inputSchema: z.object({
         file: filePathSchema,

@@ -19,15 +19,13 @@ export function registerSearchTools(server: McpServer) {
       title: "Search Memory",
       description: `Search in a memory file using hybrid, lexical, or vector search.
 
-IMPORTANT: memvid.exe runs on Windows. The file path MUST be Windows-style (e.g., C:\\Tools\\memvid-data\\knowledge.mv2).
-
 Search modes:
 - hybrid (default): Combines lexical and vector search with RRF ranking
 - lex: Full-text lexical search only (Tantivy)
 - vec: Vector similarity search only (requires embeddings)
 
 Args:
-  file: Windows path to .mv2 file (e.g., C:\\Tools\\memvid-data\\knowledge.mv2)
+  file: Absolute path to .mv2 file
   query: Search query text
   mode: Search mode (hybrid, lex, vec)
   limit: Maximum results to return (default: 10)

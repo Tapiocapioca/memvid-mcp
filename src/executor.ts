@@ -67,7 +67,7 @@ function executeOnce(
       const errCode = (err as NodeJS.ErrnoException).code;
       let hint = `Is MEMVID_PATH set correctly? Current: ${MEMVID_PATH}`;
       if (errCode === "ENOENT") {
-        hint = `memvid.exe not found at "${MEMVID_PATH}". Set MEMVID_PATH environment variable to the correct Windows path (e.g., C:\\Tools\\bin\\memvid.exe)`;
+        hint = `memvid binary not found at "${MEMVID_PATH}". Set MEMVID_PATH environment variable to the correct path, or ensure "memvid" is in your system PATH.`;
       } else if (errCode === "EACCES") {
         hint = `Permission denied running "${MEMVID_PATH}". Check file permissions.`;
       }
