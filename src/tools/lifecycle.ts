@@ -31,7 +31,7 @@ Errors:
       annotations: ANNOTATIONS.WRITE
     },
     async ({ file }) => {
-      const result = await executeMemvid(["create", file]);
+      const result = await executeMemvid(["create", file], { skipJson: true });
       return formatToolResult(result);
     }
   );
@@ -157,11 +157,12 @@ Returns:
         rebuild_time_index: z.boolean().optional().describe("Rebuild the time index"),
         rebuild_lex_index: z.boolean().optional().describe("Rebuild the lexical (full-text) index"),
         rebuild_vec_index: z.boolean().optional().describe("Rebuild the vector index"),
-        dry_run: z.boolean().optional().describe("Preview changes without applying them")
+        dry_run: z.boolean().optional().describe("Preview changes without applying them"),
+        vacuum: z.boolean().optional().describe("Compact file and reclaim space")
       }).strict(),
       annotations: ANNOTATIONS.DESTRUCTIVE
     },
-    async ({ file, rebuild_time_index, rebuild_lex_index, rebuild_vec_index, dry_run }) => {
+    async ({ file, rebuild_time_index, rebuild_lex_index, rebuild_vec_index, dry_run, vacuum }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
@@ -169,7 +170,8 @@ Returns:
         rebuild_time_index,
         rebuild_lex_index,
         rebuild_vec_index,
-        dry_run
+        plan_only: dry_run,
+        vacuum
       });
       const result = await executeMemvid(args);
       return formatToolResult(result);

@@ -59,7 +59,8 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["find", file, query], { mode, limit, uri, scope });
+      const cliMode = mode === "hybrid" ? "auto" : mode === "vec" ? "sem" : mode;
+      const args = buildArgs(["find", file], { query, mode: cliMode, top_k: limit, uri, scope });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -83,16 +84,28 @@ Returns:
   Array of results with cosine similarity scores`,
       inputSchema: z.object({
         file: filePathSchema,
-        query: z.string().min(1).describe("Search query text"),
+        query: z.string().min(1).optional().describe("Search query text (uses semantic find mode)"),
+        vector: z.string().optional().describe("Comma-separated embedding vector floats (for raw vec-search)"),
         limit: limitSchema
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, query, limit }) => {
+    async ({ file, query, vector, limit }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["vec-search", file, query], { limit });
+      if (vector) {
+        const args = buildArgs(["vec-search", file], { vector, limit });
+        const result = await executeMemvid(args);
+        return formatToolResult(result);
+      }
+      if (!query) {
+        return {
+          content: [{ type: "text" as const, text: "Error: Provide either 'query' or 'vector'." }],
+          isError: true,
+        };
+      }
+      const args = buildArgs(["find", file], { query, mode: "sem", top_k: limit });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -138,7 +151,7 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["ask", file, question], { top_k, context_only, mode });
+      const args = buildArgs(["ask", file], { question, top_k, context_only, mode });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.RAG });
       return formatToolResult(result);
     }
@@ -206,7 +219,7 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["when", file, query], { limit });
+      const args = buildArgs(["when", file], { on: query, limit });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }

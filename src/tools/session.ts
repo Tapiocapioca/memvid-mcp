@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { executeMemvid, buildArgs } from "../executor.js";
+import { executeMemvid } from "../executor.js";
 import { filePathSchema, formatToolResult, validateMv2Exists, ANNOTATIONS } from "../types.js";
 
 export function registerSessionTools(server: McpServer) {
@@ -34,8 +34,19 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["session", file], { list, start, stop, replay });
-      const result = await executeMemvid(args);
+      if (start) {
+        const result = await executeMemvid(["session", "start", file, "--name", start], { skipJson: true });
+        return formatToolResult(result);
+      }
+      if (stop) {
+        const result = await executeMemvid(["session", "end", file], { skipJson: true });
+        return formatToolResult(result);
+      }
+      if (replay) {
+        const result = await executeMemvid(["session", "replay", file, "--session", replay, "--format", "json"], { skipJson: true });
+        return formatToolResult(result);
+      }
+      const result = await executeMemvid(["session", "list", file, "--format", "json"], { skipJson: true });
       return formatToolResult(result);
     }
   );
@@ -56,18 +67,15 @@ Args:
 Returns:
   Binding status or operation confirmation`,
       inputSchema: z.object({
-        file: filePathSchema,
-        show: z.boolean().optional().describe("Show current binding"),
-        unbind: z.boolean().optional().describe("Unbind memory")
+        file: filePathSchema
       }).strict(),
-      annotations: ANNOTATIONS.DESTRUCTIVE
+      annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, show, unbind }) => {
+    async ({ file }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["binding", file], { show, unbind });
-      const result = await executeMemvid(args);
+      const result = await executeMemvid(["binding", file]);
       return formatToolResult(result);
     }
   );
@@ -90,7 +98,7 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async () => {
-      const result = await executeMemvid(["status"]);
+      const result = await executeMemvid(["status", "--offline"]);
       return formatToolResult(result);
     }
   );
@@ -117,11 +125,11 @@ Returns:
       }).strict(),
       annotations: ANNOTATIONS.WRITE
     },
-    async ({ file, build, stats }) => {
+    async ({ file, build }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["sketch", file], { build, stats });
+      const args = build ? ["sketch", "build", file] : ["sketch", "info", file];
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -152,7 +160,7 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const result = await executeMemvid(["nudge", file]);
+      const result = await executeMemvid(["nudge", file], { skipJson: true });
       return formatToolResult(result);
     }
   );

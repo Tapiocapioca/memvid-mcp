@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { executeMemvid, buildArgs } from "../executor.js";
+import { executeMemvid } from "../executor.js";
 import { filePathSchema, outputPathSchema, formatToolResult, validateMv2Exists, fileExists, ANNOTATIONS } from "../types.js";
 
 export function registerCryptoTools(server: McpServer) {
@@ -40,8 +40,11 @@ Security:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["lock", "--output", output, file], { password });
-      const result = await executeMemvid(args);
+      const args = ["lock", "--out", output, "--keep-original", file];
+      if (password !== undefined) {
+        args.push("--password-stdin");
+      }
+      const result = await executeMemvid(args, { stdin: password !== undefined ? `${password}\n` : undefined });
       return formatToolResult(result);
     }
   );
@@ -83,8 +86,11 @@ Errors:
         };
       }
 
-      const args = buildArgs(["unlock", "--output", output, file], { password });
-      const result = await executeMemvid(args);
+      const args = ["unlock", "--out", output, file];
+      if (password !== undefined) {
+        args.push("--password-stdin");
+      }
+      const result = await executeMemvid(args, { stdin: password !== undefined ? `${password}\n` : undefined });
       return formatToolResult(result);
     }
   );

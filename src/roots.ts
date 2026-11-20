@@ -99,6 +99,17 @@ function normalizePath(path: string): string {
   return normalized;
 }
 
+function getExtraAllowedRoots(): string[] {
+  const raw = process.env.MEMVID_ALLOWED_PATHS;
+  if (!raw) return [];
+  const sep = process.platform === "win32" ? ";" : ":";
+  return raw
+    .split(sep)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map(normalizePath);
+}
+
 export function isPathWithinRoots(path: string): boolean {
   if (!state.initialized || !state.supported) {
     return true;
@@ -110,6 +121,13 @@ export function isPathWithinRoots(path: string): boolean {
 
   const normalizedPath = normalizePath(path);
 
+  // Check explicit allowlist from MEMVID_ALLOWED_PATHS env var
+  for (const allowed of getExtraAllowedRoots()) {
+    if (normalizedPath === allowed || normalizedPath.startsWith(allowed + "/")) {
+      return true;
+    }
+  }
+
   for (const root of state.roots) {
     const rootPath = normalizePath(uriToPath(root.uri));
     const isExactMatch = normalizedPath === rootPath;
@@ -117,6 +135,17 @@ export function isPathWithinRoots(path: string): boolean {
 
     if (isExactMatch || isWithinRoot) {
       return true;
+    }
+
+    // Allow shared workspace memory files (.mv2 / .mv2e) located in an ancestor directory of a root
+    if (
+      (normalizedPath.endsWith(".mv2") || normalizedPath.endsWith(".mv2e")) &&
+      normalizedPath.includes("/")
+    ) {
+      const parentDir = normalizedPath.slice(0, normalizedPath.lastIndexOf("/"));
+      if (parentDir && rootPath.startsWith(parentDir + "/")) {
+        return true;
+      }
     }
   }
 

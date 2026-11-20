@@ -3,10 +3,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
 import {
   filePathSchema,
-  segmentTypeSchema,
   exportFormatSchema,
   modelTypeSchema,
-  outputPathSchema,
   formatToolResult,
   validateMv2Exists,
   TIMEOUTS,
@@ -45,16 +43,16 @@ Returns:
         file: filePathSchema,
         query: z.string().min(1).describe("Query for the audit"),
         top_k: z.number().int().positive().optional().describe("Number of sources to include"),
-        include_snippets: z.boolean().optional().describe("Include text snippets from sources")
+        mode: z.enum(["lex", "sem", "hybrid"]).optional().describe("Retrieval mode")
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, query, top_k, include_snippets }) => {
+    async ({ file, query, top_k, mode }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["audit", file, query], { top_k, include_snippets });
-      const result = await executeMemvid(args, { timeout: TIMEOUTS.RAG });
+      const args = buildArgs(["audit", file, query], { top_k, mode, format: "json" });
+      const result = await executeMemvid(args, { timeout: TIMEOUTS.RAG, skipJson: true });
       return formatToolResult(result);
     }
   );
@@ -80,16 +78,18 @@ Returns:
   Internal segment structure and statistics`,
       inputSchema: z.object({
         file: filePathSchema,
-        segment_type: segmentTypeSchema
+        segment_id: z.number().int().nonnegative().describe("Vector segment ID to inspect"),
+        max_bytes: z.number().int().positive().optional().describe("Maximum bytes to dump (default: 256)"),
+        hex_dump: z.boolean().optional().describe("Output hex dump")
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, segment_type }) => {
+    async ({ file, segment_id, max_bytes, hex_dump }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = ["debug-segment", file, segment_type];
-      const result = await executeMemvid(args);
+      const args = buildArgs(["debug-segment", file], { segment_id, max_bytes, hex_dump });
+      const result = await executeMemvid(args, { skipJson: true });
       return formatToolResult(result);
     }
   );
@@ -110,18 +110,19 @@ Returns:
   Export status and output file path`,
       inputSchema: z.object({
         file: filePathSchema,
-        output: outputPathSchema,
         format: exportFormatSchema,
-        frame_ids: z.array(z.number().int().nonnegative()).optional().describe("Export only specific frame IDs")
+        entity: z.string().optional().describe("Filter by entity"),
+        predicate: z.string().optional().describe("Filter by predicate/slot"),
+        with_provenance: z.boolean().optional().describe("Include provenance metadata")
       }).strict(),
-      annotations: ANNOTATIONS.WRITE
+      annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, output, format, frame_ids }) => {
+    async ({ file, format, entity, predicate, with_provenance }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["export", "--output", output, file], { format, frame_ids });
-      const result = await executeMemvid(args);
+      const args = buildArgs(["export", file], { format, entity, predicate, with_provenance });
+      const result = await executeMemvid(args, { skipJson: true });
       return formatToolResult(result);
     }
   );
@@ -148,7 +149,7 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const result = await executeMemvid(["tables", file]);
+      const result = await executeMemvid(["tables", "list", file]);
       return formatToolResult(result);
     }
   );
@@ -175,11 +176,11 @@ Returns:
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, infer, summary }) => {
+    async ({ file, infer }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["schema", file], { infer, summary });
+      const args = infer ? ["schema", "infer", file] : ["schema", "list", file];
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -209,7 +210,8 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async ({ model_type }) => {
-      const args = buildArgs(["models"], { model_type });
+      const cliType = model_type === "text" ? "embedding" : model_type;
+      const args = buildArgs(["models", "list"], { model_type: cliType });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }

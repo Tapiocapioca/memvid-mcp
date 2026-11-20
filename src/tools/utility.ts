@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid } from "../executor.js";
-import { filePathSchema, frameIdSchema, formatToolResult, validateMv2Exists, ANNOTATIONS } from "../types.js";
+import { filePathSchema, formatToolResult, validateMv2Exists, ANNOTATIONS } from "../types.js";
 
 export function registerUtilityTools(server: McpServer) {
   server.registerTool(
@@ -59,16 +59,15 @@ Returns:
     "issues": []
   }`,
       inputSchema: z.object({
-        file: filePathSchema,
-        frame_id: frameIdSchema
+        file: filePathSchema
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, frame_id }) => {
+    async ({ file }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const result = await executeMemvid(["verify-single-file", file, String(frame_id)]);
+      const result = await executeMemvid(["verify-single-file", file], { skipJson: true });
       return formatToolResult(result);
     }
   );
@@ -95,7 +94,7 @@ Returns:
       annotations: ANNOTATIONS.READ_ONLY
     },
     async () => {
-      const result = await executeMemvid(["config"]);
+      const result = await executeMemvid(["config", "list"]);
       return formatToolResult(result);
     }
   );

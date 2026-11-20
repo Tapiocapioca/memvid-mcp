@@ -28,16 +28,22 @@ function executeOnce(
   fullArgs: string[],
   command: string,
   timeout: number,
-  skipJson: boolean
+  skipJson: boolean,
+  stdin?: string
 ): Promise<CliResult> {
   return new Promise((resolve) => {
     const stdout: string[] = [];
     const stderr: string[] = [];
 
     const child = spawn(MEMVID_PATH, fullArgs, {
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [stdin !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
       windowsHide: true,
     });
+
+    if (stdin !== undefined && child.stdin) {
+      child.stdin.write(stdin);
+      child.stdin.end();
+    }
 
     const timeoutId = setTimeout(() => {
       child.kill("SIGTERM");
@@ -137,7 +143,7 @@ export async function executeMemvid(
   args: string[],
   options: ExecuteOptions = {}
 ): Promise<CliResult> {
-  const { timeout = TIMEOUTS.DEFAULT, skipJson = false } = options;
+  const { timeout = TIMEOUTS.DEFAULT, skipJson = false, stdin } = options;
 
   // Verify path on first call
   verifyPath();
@@ -161,7 +167,7 @@ export async function executeMemvid(
       await sleep(RETRY_DELAY_MS * attempt); // Exponential backoff
     }
 
-    lastResult = await executeOnce(fullArgs, command, timeout, skipJson);
+    lastResult = await executeOnce(fullArgs, command, timeout, skipJson, stdin);
     
     // Only retry on spawn errors (ENOENT, etc.), not on command failures
     const isSpawnError = (lastResult as { isSpawnError?: boolean }).isSpawnError;

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMemvid, buildArgs } from "../executor.js";
-import { filePathSchema, frameIdSchema, formatToolResult, validateMv2Exists, TIMEOUTS, ANNOTATIONS } from "../types.js";
+import { filePathSchema, formatToolResult, validateMv2Exists, TIMEOUTS, ANNOTATIONS } from "../types.js";
 
 export function registerKnowledgeTools(server: McpServer) {
   server.registerTool(
@@ -25,16 +25,17 @@ Returns:
   }`,
       inputSchema: z.object({
         file: filePathSchema,
-        all: z.boolean().optional().describe("Process all pending frames"),
-        frame_id: frameIdSchema.optional().describe("Specific frame ID to enrich")
+        engine: z.enum(["rules", "llm", "candle", "openai", "claude", "gemini", "xai", "groq", "mistral"]).optional().describe("Enrichment engine (default: rules)"),
+        force: z.boolean().optional().describe("Re-enrich all frames, ignoring previous records"),
+        all: z.boolean().optional().describe("Alias for force")
       }).strict(),
       annotations: ANNOTATIONS.WRITE
     },
-    async ({ file, all, frame_id }) => {
+    async ({ file, engine, force, all }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["enrich", file], { all, frame_id });
+      const args = buildArgs(["enrich", file], { engine, force: force ?? all });
       const result = await executeMemvid(args, { timeout: TIMEOUTS.HEAVY });
       return formatToolResult(result);
     }
@@ -58,17 +59,16 @@ Returns:
   Memory cards matching the criteria`,
       inputSchema: z.object({
         file: filePathSchema,
-        list: z.boolean().optional().describe("List all memory cards"),
-        stats: z.boolean().optional().describe("Show memory statistics"),
-        entity: z.string().optional().describe("Filter by entity name")
+        entity: z.string().optional().describe("Filter by entity name"),
+        slot: z.string().optional().describe("Filter by slot")
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, list, stats, entity }) => {
+    async ({ file, entity, slot }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["memories", file], { list, stats, entity });
+      const args = buildArgs(["memories", file], { entity, slot });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -90,15 +90,17 @@ Returns:
   Current memory state information`,
       inputSchema: z.object({
         file: filePathSchema,
-        show: z.boolean().optional().describe("Show current state")
+        entity: z.string().min(1).describe("Entity to query"),
+        slot: z.string().optional().describe("Specific slot to query"),
+        at_time: z.number().optional().describe("Unix timestamp for point-in-time query")
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, show }) => {
+    async ({ file, entity, slot, at_time }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["state", file], { show });
+      const args = buildArgs(["state", file], { entity, slot, at_time });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -121,16 +123,18 @@ Returns:
   List of facts with source references`,
       inputSchema: z.object({
         file: filePathSchema,
-        frame_id: frameIdSchema.optional().describe("Extract facts from specific frame"),
-        list: z.boolean().optional().describe("List all extracted facts")
+        entity: z.string().optional().describe("Filter by entity"),
+        predicate: z.string().optional().describe("Filter by predicate/slot"),
+        value: z.string().optional().describe("Filter by value"),
+        history: z.boolean().optional().describe("Include superseded values")
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
-    async ({ file, frame_id, list }) => {
+    async ({ file, entity, predicate, value, history }) => {
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["facts", file], { frame_id, list });
+      const args = buildArgs(["facts", file], { entity, predicate, value, history });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -173,7 +177,7 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const args = buildArgs(["follow", file, entity], { link, hops });
+      const args = buildArgs(["follow", "traverse", file], { start: entity, link, hops });
       const result = await executeMemvid(args);
       return formatToolResult(result);
     }
@@ -195,7 +199,7 @@ Returns:
   Entity information and mentions`,
       inputSchema: z.object({
         file: filePathSchema,
-        query: z.string().min(1).describe("Entity name or query")
+        query: z.string().optional().describe("Optional entity name to filter entities in Logic-Mesh; if omitted shows active writer lock info")
       }).strict(),
       annotations: ANNOTATIONS.READ_ONLY
     },
@@ -203,7 +207,8 @@ Returns:
       const mv2Error = validateMv2Exists(file);
       if (mv2Error) return mv2Error;
 
-      const result = await executeMemvid(["who", file, query]);
+      const args = query ? buildArgs(["follow", "entities", file], { query }) : ["who", file];
+      const result = await executeMemvid(args);
       return formatToolResult(result);
     }
   );

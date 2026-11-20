@@ -31,6 +31,7 @@ export interface CliResult {
 export interface ExecuteOptions {
   timeout?: number;
   skipJson?: boolean;
+  stdin?: string;
 }
 
 // ============================================================================
@@ -172,10 +173,10 @@ export const limitSchema = z
   .describe("Maximum number of results to return");
 
 export const searchModeSchema = z
-  .enum(["hybrid", "lex", "vec"])
+  .enum(["auto", "hybrid", "lex", "sem", "vec", "clip"])
   .optional()
-  .default("hybrid")
-  .describe("Search mode: hybrid (default), lex (lexical), vec (vector)");
+  .default("auto")
+  .describe("Search mode: auto (default, hybrid), lex (lexical), sem/vec (semantic), clip");
 
 export const askModeSchema = z
   .enum(["hybrid", "lex", "sem"])
@@ -183,20 +184,16 @@ export const askModeSchema = z
   .default("hybrid")
   .describe("Search mode: hybrid (default), lex (lexical), sem (semantic)");
 
-export const segmentTypeSchema = z
-  .enum(["lex", "vec", "time"])
-  .describe("Segment type: lex (lexical), vec (vector), time (temporal)");
-
 export const exportFormatSchema = z
-  .enum(["json", "csv", "jsonl"])
+  .enum(["ntriples", "json", "csv"])
   .optional()
   .default("json")
-  .describe("Export format: json (default), csv, jsonl");
+  .describe("Export format: json (default), ntriples, csv");
 
 export const modelTypeSchema = z
-  .enum(["text", "clip", "whisper"])
+  .enum(["embedding", "reranker", "llm", "clip", "ner", "whisper", "external", "text"])
   .optional()
-  .describe("Model type filter: text, clip, whisper");
+  .describe("Model type filter: embedding, reranker, llm, clip, ner, whisper, external");
 
 export const sketchVariantSchema = z
   .enum(["small", "medium", "large"])
@@ -276,7 +273,7 @@ export function formatToolResult(result: CliResult) {
         ? result.data
         : JSON.stringify(result.data, null, 2);
 
-    if (!text || text === "null" || text === "undefined" || text.trim() === "") {
+    if (!text || text === "undefined" || text.trim() === "") {
       return {
         content: [{
           type: "text" as const,
